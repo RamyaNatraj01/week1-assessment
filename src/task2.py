@@ -1,16 +1,26 @@
 import csv
 import json
 import os
+from pathlib import Path
+
 import requests
 
 from dotenv import load_dotenv
-load_dotenv()
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR = PROJECT_ROOT / "data"
+REPORTS_DIR = PROJECT_ROOT / "reports"
+REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+
+# Read local credentials without hardcoding them in the script.
+load_dotenv(PROJECT_ROOT / ".env")
 
 API_KEY = os.getenv("API_KEY")
 
 employees = []
 
-with open("employees.csv", "r", newline="") as file:
+# Load employee records and convert numeric fields.
+with open(DATA_DIR / "employees.csv", "r", newline="") as file:
 
     reader = csv.DictReader(file)
 
@@ -20,7 +30,8 @@ with open("employees.csv", "r", newline="") as file:
 
         employees.append(row)
 
-with open("employees.json", "w") as file:
+# Export all records to JSON and high earners to CSV.
+with open(REPORTS_DIR / "employees.json", "w") as file:
 
     json.dump(employees, file, indent=4)
 
@@ -29,7 +40,7 @@ high_earners = [
     if emp["salary"] > 50000
 ]
 
-with open("high_earners.csv", "w", newline="") as file:
+with open(REPORTS_DIR / "high_earners.csv", "w", newline="") as file:
 
     fieldnames = [
         "id", "name", "department", "salary", "city"
@@ -45,6 +56,7 @@ with open("high_earners.csv", "w", newline="") as file:
 
 print(f"Rows read: {len(employees)} | High earners: {len(high_earners)}")
 
+# Fetch users with a timeout and handle request failures.
 url = "https://jsonplaceholder.typicode.com/users"
 
 try:
@@ -74,6 +86,7 @@ except requests.exceptions.ConnectionError:
 except requests.exceptions.HTTPError as e:
     print("HTTP Error:", e)
 
+# Verify the missing-user endpoint returns a 404.
 try:
 
     response = requests.get(
@@ -96,6 +109,7 @@ except requests.exceptions.ConnectionError:
 except requests.exceptions.HTTPError as e:
     print("HTTP Error:", e)
 
+# Extract optional nested company fields and save the selected data.
 try:
     response = requests.get(url, timeout=5)
 
@@ -117,7 +131,7 @@ try:
 
         parsed_users.append(user_data)
 
-    with open("users.json", "w") as file:
+    with open(REPORTS_DIR / "users.json", "w") as file:
 
         json.dump(
             parsed_users,

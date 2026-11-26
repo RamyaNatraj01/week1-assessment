@@ -5,9 +5,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-BASE_DIR = Path(__file__).resolve().parent
-CHARTS_DIR = BASE_DIR / "charts"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR = PROJECT_ROOT / "data"
+REPORTS_DIR = PROJECT_ROOT / "reports"
+CHARTS_DIR = REPORTS_DIR / "charts"
+REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
+# Calculate averages, add grace marks by broadcasting, and apply weights.
 marks = np.array(
     [
         [85, 90, 80],
@@ -22,13 +26,15 @@ graced_marks = marks + 5
 weights = np.array([0.3, 0.3, 0.4])
 weighted_scores = np.dot(graced_marks, weights)
 
-employees = pd.read_csv(BASE_DIR / "employees.csv")
+# Explore the source data and demonstrate Pandas selection and filtering.
+employees = pd.read_csv(DATA_DIR / "employees.csv")
 employees.info(buf=StringIO())
 employee_description = employees.describe()
 loc_preview = employees.loc[0:2, ["name", "salary"]]
 iloc_preview = employees.iloc[0:3, 0:3]
 high_salary_employees = employees.loc[employees["salary"] > 50000]
 
+# Create a cleaning example with two missing salaries and one duplicate.
 dirty_employees = employees.copy()
 dirty_employees.loc[dirty_employees["id"].isin([1, 2]), "salary"] = np.nan
 
@@ -37,11 +43,12 @@ dirty_employees = pd.concat(
     [dirty_employees, duplicate_row],
     ignore_index=True,
 )
-dirty_file = BASE_DIR / "employees_with_issues.csv"
+dirty_file = DATA_DIR / "employees_with_issues.csv"
 dirty_employees.to_csv(dirty_file, index=False)
 
 dirty_employees = pd.read_csv(dirty_file)
 
+# Remove duplicates before using the remaining salaries to calculate the median.
 dirty_employees = dirty_employees.drop_duplicates().copy()
 dirty_employees["id"] = pd.to_numeric(
     dirty_employees["id"], errors="raise"
@@ -54,9 +61,10 @@ median_salary = dirty_employees["salary"].median()
 dirty_employees["salary"] = dirty_employees["salary"].fillna(median_salary)
 dirty_employees["salary"] = dirty_employees["salary"].astype("float64")
 
-cleaned_file = BASE_DIR / "cleaned_employees.csv"
+cleaned_file = REPORTS_DIR / "cleaned_employees.csv"
 dirty_employees.to_csv(cleaned_file, index=False)
 
+# Include Legal to show how the outer join identifies an unstaffed department.
 departments = pd.DataFrame(
     {
         "department": ["Sales", "HR", "IT", "Finance", "Legal"],
@@ -70,10 +78,11 @@ departments = pd.DataFrame(
         "budget": [1000000, 500000, 2500000, 1500000, 400000],
     }
 )
-departments_file = BASE_DIR / "departments.csv"
+departments_file = DATA_DIR / "departments.csv"
 departments.to_csv(departments_file, index=False)
 departments = pd.read_csv(departments_file)
 
+# Summarize cleaned headcount and salaries in the assessment's expected order.
 department_order = ["Sales", "HR", "IT", "Finance"]
 
 department_summary = (
@@ -105,8 +114,10 @@ no_employee_departments = outer_join.loc[
     outer_join["_merge"] == "right_only", "department"
 ].tolist()
 
-CHARTS_DIR.mkdir(exist_ok=True)
+# Save each requested chart as a PNG.
+CHARTS_DIR.mkdir(parents=True, exist_ok=True)
 
+# Bar chart: employee headcount by department.
 plt.figure(figsize=(8, 5))
 plt.bar(
     department_summary["department"],
@@ -122,6 +133,7 @@ plt.tight_layout()
 plt.savefig(CHARTS_DIR / "department_headcount.png", dpi=150)
 plt.close()
 
+# Histogram: distribution of cleaned employee salaries.
 plt.figure(figsize=(8, 5))
 plt.hist(
     dirty_employees["salary"],
@@ -138,6 +150,7 @@ plt.tight_layout()
 plt.savefig(CHARTS_DIR / "salary_distribution.png", dpi=150)
 plt.close()
 
+# Scatter plot: salary by employee ID, grouped by department.
 plt.figure(figsize=(8, 5))
 for department in department_order:
     department_data = dirty_employees.loc[
@@ -157,6 +170,7 @@ plt.tight_layout()
 plt.savefig(CHARTS_DIR / "salary_vs_id.png", dpi=150)
 plt.close()
 
+# Line chart: average salary by department.
 plt.figure(figsize=(8, 5))
 plt.plot(
     department_summary["department"],
@@ -181,6 +195,7 @@ highest_average_row = department_summary.loc[
     department_summary["average_salary"].idxmax()
 ]
 
+# Format the assessment summary with departments in the required order.
 headcount_output = " | ".join(
     f"{row.department} {int(row.headcount)}"
     for row in department_summary.itertuples(index=False)
